@@ -4,25 +4,19 @@ import (
 )
 
 //타임기반의 일처리 엔진
-type task struct{
+type Task struct{
 	startNum	int32
 	maxNum		int32
 	interval	int32
 	isRepeat	bool
 }
 
-var taskData = make(map[int32]task)
+var taskData = make(map[int32]Task)
 
 // SetDatas : 파라메터 추가
 // 인풋 : taskIndex int32, startNum int32, interval int32, isRepeat bool
-func SetData(taskIndex int32, startNum int32, maxNum int32, interval int32, isRepeat bool) {
-	taskTmp := task{
-		startNum	: startNum,
-		maxNum		: maxNum,
-		interval	: interval,
-		isRepeat	: isRepeat,
-	}
-	taskData[taskIndex] = taskTmp
+func SetData(taskIndex int32, t Task) {
+	taskData[taskIndex] = t
 }
 
 // validate : taskIndex 가 파라메터에 있는지 체크
@@ -38,13 +32,13 @@ func validate(taskIndex int32) error {
 
 // CreateTask : 태스크를 생성함
 // 인풋 : user id, task index
-// 리턴 : 현재수량, 인터벌, err
-func CreateTask(uid int32, taskIndex int32) (curNum int32, interval int32, err error) {
+// 리턴 : err
+func CreateTask(uid int32, taskIndex int32) (err error) {
 	if err := validate(taskIndex); err != nil {
-		return 0, 0, err
+		return err
 	}
 
-	return 0, 0, nil
+	return nil
 }
 
 // StartTask : 인터벌 시작. 현재수량이 최대수량보다 크거나 같을 경우에는 에러처리

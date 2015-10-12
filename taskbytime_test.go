@@ -7,9 +7,43 @@ import (
 
 func init() {
 	log.Print("init taskbytime test")
-	SetData(0, 0, 3, 10, true)
-	SetData(1, 5, 5, 12, true)
-	SetData(2, 0, 1, 15, false)
+	SetData(0,Task{
+		startNum:0,
+		maxNum:3,
+		interval:10,
+		isRepeat:true,
+	})
+	SetData(1,Task{
+		startNum:5,
+		maxNum:5,
+		interval:13,
+		isRepeat:true,
+	})
+	SetData(2,Task{
+		startNum:0,
+		maxNum:1,
+		interval:17,
+		isRepeat:false,
+	})
+}
+
+type clientTask struct {
+	Task
+	taskIndex		int32
+	curNum			int32
+	remainedTime	int32
+	Ticker 			*time.Ticker
+}
+
+func newClient(t Task) *clientTask {
+	return &clientTask{
+		Task: t,
+		Ticker			:time.NewTicker(1 * time.Second),
+	}
+}
+
+func (c *clientTask)printSec() {
+	log.Printf("Task: %d Current Num: %d Remained Time: %d", c.taskIndex, c.curNum, c.remainedTime)
 }
 
 func TestNew(t *testing.T) {
@@ -21,18 +55,32 @@ func TestNew(t *testing.T) {
 	var taskIndex_a int32
 	taskIndex_a = 0
 
-	if startNum, interval, err := CreateTask(uid1, taskIndex_a); err == nil {
-		t.Errorf("Fail CreateTask %d, %d, %s", startNum, interval, err)
+	var curNum, interval, remainedTime int32
+	var err error
+	if err = CreateTask(uid1, taskIndex_a); err == nil {
+		t.Errorf("Fail CreateTask %s", err)
 	}
 
-	if curNum, interval, remainedTime, err := StartTask(uid1, taskIndex_a); err == nil {
-		t.Errorf("Fail CreateTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
+	if curNum, interval, remainedTime, err = StartTask(uid1, taskIndex_a); err == nil {
+		t.Errorf("Fail StartTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
+	}
+	if interval == 0 {
+		t.Errorf("Fail interval is 0")
+	}
+	if remainedTime == 0 {
+		t.Errorf("Fail remainedTime is 0")
 	}
 
-	ticker1Sec := time.NewTicker(1 * time.Second)
+	client := newClient(Task {
+		startNum:	0,
+		maxNum:		0,
+		interval:	0,
+		isRepeat:	true,
+	})
+	client.Ticker = time.NewTicker(1 * time.Second)
 	go func(){
-		for _ = range ticker1Sec.C {
-			log.Println("tick")
+		for _ = range client.Ticker.C {
+			client.printSec()
 		}
 	}()
 	time.Sleep(100 * time.Second)
