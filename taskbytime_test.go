@@ -3,6 +3,7 @@ import (
 	"testing"
 	"time"
 	"log"
+	"jsonfileio"
 )
 
 func init() {
@@ -48,20 +49,21 @@ func (c *clientTask)printSec() {
 
 func TestNew(t *testing.T) {
 	// users
-	var uid1 int32
+	var uid1 uint32
 	uid1 = 123
 
 	// a task
-	var taskId_a int32
+	var taskId_a uint32
 	taskId_a = 0
 
-	var curNum, interval, remainedTime int32
+	tm := NewTaskManger(jsonfileio.New())
+	var curNum, interval, remainedTime uint32
 	var err error
-	if err = CreateTask(uid1, taskId_a); err == nil {
+	if err = tm.CreateTask(uid1, taskId_a); err == nil {
 		t.Errorf("Fail CreateTask %s", err)
 	}
 
-	if curNum, interval, remainedTime, err = StartTask(uid1, taskId_a); err == nil {
+	if curNum, interval, remainedTime, err = tm.StartTask(uid1, taskId_a); err == nil {
 		t.Errorf("Fail StartTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
 	}
 	if interval == 0 {
