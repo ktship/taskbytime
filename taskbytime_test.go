@@ -29,7 +29,7 @@ func init() {
 
 type clientTask struct {
 	Task
-	taskIndex		int32
+	taskId			int32
 	curNum			int32
 	remainedTime	int32
 	Ticker 			*time.Ticker
@@ -43,7 +43,7 @@ func newClient(t Task) *clientTask {
 }
 
 func (c *clientTask)printSec() {
-	log.Printf("Task: %d Current Num: %d Remained Time: %d", c.taskIndex, c.curNum, c.remainedTime)
+	log.Printf("Task: %d Current Num: %d Remained Time: %d", c.taskId, c.curNum, c.remainedTime)
 }
 
 func TestNew(t *testing.T) {
@@ -52,16 +52,16 @@ func TestNew(t *testing.T) {
 	uid1 = 123
 
 	// a task
-	var taskIndex_a int32
-	taskIndex_a = 0
+	var taskId_a int32
+	taskId_a = 0
 
 	var curNum, interval, remainedTime int32
 	var err error
-	if err = CreateTask(uid1, taskIndex_a); err == nil {
+	if err = CreateTask(uid1, taskId_a); err == nil {
 		t.Errorf("Fail CreateTask %s", err)
 	}
 
-	if curNum, interval, remainedTime, err = StartTask(uid1, taskIndex_a); err == nil {
+	if curNum, interval, remainedTime, err = StartTask(uid1, taskId_a); err == nil {
 		t.Errorf("Fail StartTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
 	}
 	if interval == 0 {
