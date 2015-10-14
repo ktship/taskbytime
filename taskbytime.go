@@ -4,7 +4,8 @@ import (
 	"time"
 )
 
-//타임기반의 일처리 엔진
+// 타임기반의 일처리 엔진
+// 모든 태스크 수량 처리는 update 함수를 호출해서 갱신한 후에 할 것.
 
 // 모든 태스크는 TaskManager 에게 일을 맡김. 인터페이스 역할을 함.
 type TaskManager struct {
@@ -70,16 +71,16 @@ func (t *TaskManager)StartTask() (curNum int32, interval int32, remainTime int32
 	}
 
 	// write 할 내용 편집
-	taskData := taskDatas[t.taskId]
+	taskd := taskDatas[t.taskId]
 	// 시작수량이 최대수량보다 작을때만 체크타임
 	var checkTime int64
 	checkTime = 0
-	if taskData.startNum < taskData.maxNum {
+	if taskd.startNum < taskd.maxNum {
 		checkTime = time.Now().Unix()
 	}
 	taskVar := TaskVariable {
 		checkTime:	checkTime,
-		curNum:		taskData.startNum,
+		curNum:		taskd.startNum,
 	}
 
 	// 디비에 씀
@@ -91,53 +92,56 @@ func (t *TaskManager)StartTask() (curNum int32, interval int32, remainTime int32
 	return taskData.startNum, taskData.interval, taskData.interval, nil
 }
 
-// AddTask : 수량을 늘림 (친구의 하트선물등)
-// 인풋 : add number
+// CalcTask : 수량을 더하고 뺌 (하트 사용, 하트 선물등. 시간에 따른 수량 변화는 update 함수로 처리)
+// 인풋 : 추가/감소 수량
 // 리턴 : 현재수량, 인터벌, remainTime( 0이면 스톱상태 ), err
-func (t *TaskManager)AddTask(addNum int32) (curNum int32, interval int32, remainTime int32, err error) {
+func (t *TaskManager)CalcTask(num int32) (curNum int32, interval int32, remainTime int32, err error) {
 	if err := t.validate(); err != nil {
 		return 0, 0, 0, err
 	}
+	// 메모리에서 태스크 관련 파라메터 get
+	taskd := taskDatas[t.taskId]
 
-	taskData := taskDatas[t.taskId]
-
-	// user 데이터 get
+	// 캐쉬에서 user 데이터 get
 	userTask, err := t.cacheIo.GetCacheTask(t.uid, t.taskId)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 
 	// 현재 시간을 기준으로 업데이트 실시
-	t.update(&userTask)
+	newNum, newRemainTime, NewCheckTime, err := t.update(&userTask)
+	addedNum := newNum + num
+	// 계산된 수량이 음수이면 0으로 초기화, 그리고 체크타임등을 초기화.
+	// 수량이 Max 치를 넘어서는 것에 대해서는 제한하지 않음. (update 함수내부에서는 제한함)
+	if addedNum < 0 {
+		addedNum = 0
+		newRemainTime = taskd.interval
+		NewCheckTime = time.Now().Unix()
+	}
 
-	// 수량 추가: 수량은 음수가 될 수 없음
-	addedNum := userTask.curNum + addNum
-	addedNum = Max(addedNum, 0)
-
-	taskVar := TaskVariable {
-		checkTime:	userTask.checkTime,
-		curNum:		addedNum,
+	// 최대치 이상이었다가 최대치보다 작아 졌을때는 체크타임과 remainTime 을 초기화해준다.
+	// 예> 풀 하트였다가 하트 소모하면 그때부터 다시 재계산함.
+	if newNum >= taskd.maxNum && addedNum < taskd.maxNum {
+		newRemainTime = taskd.interval
+		NewCheckTime = time.Now().Unix()
 	}
 
 	// 디비에 씀
+	taskVar := TaskVariable {
+		checkTime:	NewCheckTime,
+		curNum:		addedNum,
+	}
 	err = t.io.Write(t.uid, t.taskId, taskVar)
 	if err != nil {
 		return 0, 0, 0, err
 	}
-
-	return taskData.startNum, taskData.interval, taskData.interval, nil
-}
-
-// ReduceTask : 수량을 줄임. 자동 삭제(옵션)
-// 인풋 : reduce num
-// 리턴 : 현재수량, 인터벌, remainTime( 0이면 스톱상태 ), err
-func (t *TaskManager)ReduceTask(reduceNum int32) (curNum int32, interval int32, remainTime int32, err error) {
-	if err := t.validate(); err != nil {
+	// 캐쉬에 씀
+	err = t.cacheIo.PutCacheTask(t.uid, t.taskId, taskVar)
+	if err != nil {
 		return 0, 0, 0, err
 	}
 
-
-	return 0, 0, 0, nil
+	return addedNum, taskd.interval, newRemainTime, nil
 }
 
 // DeleteTask : 태스크 삭제
@@ -159,19 +163,32 @@ func (t *TaskManager)update(userTask *TaskVariable) (newNum int32, newRemainTime
 	if err := t.validate(); err != nil {
 		return 0,0,0,err
 	}
-	taskData := taskDatas[t.taskId]
 
-	oldCheckTime := userTask.checkTime
+	taskd := taskDatas[t.taskId]
 	curTime := time.Now().Unix()
+
+	// 총수량이 최대수량보다 많으면 더 볼것도 없이,
+	// 총수량은 최대수량으로 고정시키고 남은 시간과 체크시간을 현재 시간 기준으로 바꿈.
+	if userTask.curNum >= taskd.maxNum {
+		return userTask.curNum, taskd.interval, curTime, nil
+	}
+
+	// 체크시간과 현재시간의 차이에서 인터벌로 나눈 수만큼 갯수를 증가시킴.
+	oldCheckTime := userTask.checkTime
 	curInterval := curTime - oldCheckTime
 	curInterval = Max64(0, curInterval)
-	if taskData.interval == 0 {
-		return 0,0,0,fmt.Errorf("taskData.interval is 0")
+	if taskd.interval == 0 {
+		return 0,0,0,fmt.Errorf("taskData.interval(%d) is 0", t.taskId)
 	}
-	portion := curInterval / int64(taskData.interval)
-	mod := curInterval % int64(taskData.interval)
+	portion := curInterval / int64(taskd.interval)
+	mod := curInterval % int64(taskd.interval)
 
+	// 시간 계산후에 총수량이 최대수량보다 많아버리면,
+	// 총수량은 최대수량으로 고정시키고 남은 시간과 체크시간을 현재 시간 기준으로 바꿈.
 	rNum := userTask.curNum + int32(portion)
+	rNum = Min(rNum, taskd.maxNum)
+
+	// 새 체크시간 갱신
 	rCheckTime := curTime - mod
 
 	return rNum, int32(mod), int32(rCheckTime), nil

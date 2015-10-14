@@ -7,19 +7,19 @@ import (
 
 func init() {
 	log.Print("init taskbytime test")
-	SetData(0,TaskData{
+	SetData(0, taskData{
 		startNum:0,
 		maxNum:3,
 		interval:10,
 		isRepeat:true,
 	})
-	SetData(1,TaskData{
+	SetData(1, taskData{
 		startNum:5,
 		maxNum:5,
 		interval:13,
 		isRepeat:true,
 	})
-	SetData(2,TaskData{
+	SetData(2, taskData{
 		startNum:0,
 		maxNum:1,
 		interval:17,
@@ -28,16 +28,16 @@ func init() {
 }
 
 type clientTask struct {
-	TaskData
+	taskData
 	taskId			int
 	curNum			int
 	remainedTime	int
 	Ticker 			*time.Ticker
 }
 
-func newClient(t TaskData) *clientTask {
+func newClient(t taskData) *clientTask {
 	return &clientTask{
-		TaskData: t,
+		taskData: t,
 		Ticker			:time.NewTicker(1 * time.Second),
 	}
 }
@@ -71,7 +71,7 @@ func TestNew(t *testing.T) {
 		t.Errorf("Fail remainedTime is 0")
 	}
 
-	client := newClient(TaskData {
+	client := newClient(taskData{
 		startNum:	0,
 		maxNum:		0,
 		interval:	0,
