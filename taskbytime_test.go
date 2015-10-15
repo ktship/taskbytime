@@ -3,6 +3,7 @@ import (
 	"testing"
 	"time"
 	"log"
+	"github.com/ktship/testio"
 )
 
 func init() {
@@ -48,22 +49,22 @@ func (c *clientTask)printSec() {
 
 func TestNew(t *testing.T) {
 	// users
-	var uid1 int
+	var uid1 uint32
 	uid1 = 123
 
 	// a task
-	var taskId_a int
+	var taskId_a uint32
 	taskId_a = 0
 
-	var curNum, interval, remainedTime int
-	var err error
-	if err = CreateTask(uid1, taskId_a); err == nil {
-		t.Errorf("Fail CreateTask %s", err)
+	tio := testio.NewTestFileIO()
+	cio := testio.NewTestCacheIO()
+	taskm := NewTaskManager(tio, cio, uid1, taskId_a)
+
+	curNum, interval, remainedTime, err := taskm.CreateTask()
+	if err == nil {
+		t.Errorf("Fail CreateTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
 	}
 
-	if curNum, interval, remainedTime, err = StartTask(uid1, taskId_a); err == nil {
-		t.Errorf("Fail StartTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
-	}
 	if interval == 0 {
 		t.Errorf("Fail interval is 0")
 	}
