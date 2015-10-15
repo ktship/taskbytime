@@ -111,6 +111,7 @@ func (t *TaskManager)CalcTask(num int32) (curNum int32, interval int32, remainTi
 	// 현재 시간을 기준으로 업데이트 실시
 	newNum, newRemainTime, NewCheckTime, err := t.update(chTime, crNum)
 	addedNum := newNum + num
+
 	// 계산된 수량이 음수이면 0으로 초기화, 그리고 체크타임등을 초기화.
 	// 수량이 Max 치를 넘어서는 것에 대해서는 제한하지 않음. (update 함수내부에서는 제한함)
 	if addedNum < 0 {
@@ -177,6 +178,7 @@ func (t *TaskManager)update(chTime int64, crNum int32) (newNum int32, newRemainT
 	// 총수량은 최대수량으로 고정시키고 남은 시간과 체크시간을 현재 시간 기준으로 바꿈.
 	curNum := crNum
 	if curNum >= taskd.maxNum {
+		log.Printf("	- update curNum:%d interval: %d checktime : %d", curNum, taskd.interval, curTime)
 		return curNum, taskd.interval, curTime, nil
 	}
 
@@ -189,7 +191,6 @@ func (t *TaskManager)update(chTime int64, crNum int32) (newNum int32, newRemainT
 	}
 	portion := curInterval / int64(taskd.interval)
 	mod := curInterval % int64(taskd.interval)
-	log.Printf("--- update curInterval:%d taskd.interval: %d mod : %d", curInterval, taskd.interval, mod)
 
 	// 시간 계산후에 총수량이 최대수량보다 많아버리면,
 	// 총수량은 최대수량으로 고정시키고 남은 시간과 체크시간을 현재 시간 기준으로 바꿈.
@@ -200,6 +201,7 @@ func (t *TaskManager)update(chTime int64, crNum int32) (newNum int32, newRemainT
 	rCheckTime := curTime - mod
 	// 새 남은 시간 갱신
 	remain := taskd.interval - int32(mod)
+	log.Printf("	- update curInterval(%d) taskd.interval(%d) remain(%d)", curInterval, taskd.interval, remain)
 
 	return rNum, remain, rCheckTime, nil
 }
