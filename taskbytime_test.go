@@ -4,6 +4,7 @@ import (
 	"time"
 	"log"
 	"github.com/ktship/testio"
+	"fmt"
 )
 
 func init() {
@@ -22,7 +23,7 @@ func init() {
 	SetData(2, taskData{
 		startNum:0,
 		maxNum:1,
-		interval:17,
+		interval:5,
 		isRepeat:false,
 	})
 }
@@ -74,7 +75,6 @@ func (c *clientTask)tick1sec() {
 	}
 }
 
-/*
 func TestNew(t *testing.T) {
 	// users
 	var uid1, uid2, uid3 uint32
@@ -186,7 +186,6 @@ func TestNew(t *testing.T) {
 	time.Sleep(1 * time.Second)
 	stop <- true
 }
-*/
 
 func TestCalc(t *testing.T) {
 	// users
@@ -288,3 +287,80 @@ func TestCalc(t *testing.T) {
 	}
 }
 
+func TestFinish(t *testing.T) {
+	// users
+	var uid3 uint32
+	uid3 = 333
+
+	// a task : 1, 1, 5
+	var taskId uint32
+	taskId = 2
+
+	tData := taskDatas[taskId]
+
+	client := newClient(tData, uid3, taskId, tData.startNum, tData.interval)
+	nTM := client.newTM()
+	curNum, interval, remainedTime, err := nTM.CreateTask()
+	if err != nil {
+		t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+	}
+	log.Printf("TestFinish ----------- start(%d), interval(%d), remainTime(%d)", curNum, interval, remainedTime)
+
+	time.Sleep(2 * time.Second)
+	log.Printf(" 2초후")
+	if true {
+		log.Printf(" - 확인")
+		nTM := client.newTM()
+		curNum, interval, remainedTime, err := nTM.CalcTask(0)
+		if err != nil {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		}
+		log.Printf(" - num 은 0, remainTime은 3이라야 함")
+		if curNum != 0 || remainedTime != 3 {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		}
+
+		time.Sleep(2 * time.Second)
+		log.Printf(" 2초후")
+		log.Printf(" - 확인")
+		nTM2 := client.newTM()
+		curNum, interval, remainedTime, err = nTM2.CalcTask(0)
+		if err != nil {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		}
+		log.Printf(" - num 은 0, remainTime은 1이라야 함")
+		if curNum != 0 || remainedTime != 1 {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		}
+
+		time.Sleep(2 * time.Second)
+		log.Printf(" 2초후")
+		log.Printf(" - 확인")
+		nTM3 := client.newTM()
+		curNum, interval, remainedTime, err = nTM3.CalcTask(0)
+		if err != nil {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		}
+		log.Printf(" - num 은 1, remainTime은 4이라야 함")
+		if curNum != 1 || remainedTime != 4 {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		}
+
+		nTM = client.newTM()
+		err = nTM3.DeleteTask()
+		if err != nil {
+			t.Errorf("Fail DeleteTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
+		}
+
+		time.Sleep(2 * time.Second)
+		log.Printf(" 2초후")
+		log.Printf(" - 확인")
+		nTM = client.newTM()
+		curNum, interval, remainedTime, err = nTM.CalcTask(0)
+		if err == nil {
+			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
+		} else {
+			fmt.Println(err)
+		}
+	}
+}
