@@ -40,15 +40,15 @@ type TaskVariable struct {
 
 // DB에 태스크 관련 데이터를 저장할 인터페이스
 type TaskIO interface {
-	Read(id uint32, id2 uint32) (chTime int64, num int32, err error)
-	Write(id uint32, id2 uint32, chTime int64, num int32) error
+	Read(id uint32, id2 uint32) (data map[string]int64, err error)
+	Write(id uint32, id2 uint32, dat map[string]int64) error
 	Del(id uint32, id2 uint32) (err error)
 }
 
 // 캐쉬에서 태스크 관련 정보들을 읽고 쓰는 인터페이스
 type TaskCacheIO interface {
-	GetCacheTask(id uint32, id2 uint32) (chTime int64, num int32, err error)
-	PutCacheTask(id uint32, id2 uint32, chTime int64, num int32) error
+	GetCacheTask(id uint32, id2 uint32) (data map[string]int64, err error)
+	PutCacheTask(id uint32, id2 uint32, dat map[string]int64) error
 	DelCacheTask(id uint32, id2 uint32) (err error)
 }
 
@@ -79,12 +79,15 @@ func (t *TaskManager)CreateTask() (curNum int32, interval int32, remainTime int3
 	checkTime := time.Now().Unix()
 
 	// 디비에 씀
-	err = t.io.Write(t.uid, t.taskId, checkTime, taskd.startNum)
+	dat := make(map[string]int64)
+	dat["ct"] = checkTime
+	dat["num"] = int64(taskd.startNum)
+	err = t.io.Write(t.uid, t.taskId, dat)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	// 캐쉬에 씀
-	err = t.cacheIo.PutCacheTask(t.uid, t.taskId, checkTime, taskd.startNum)
+	err = t.cacheIo.PutCacheTask(t.uid, t.taskId, dat)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -103,13 +106,13 @@ func (t *TaskManager)CalcTask(num int32) (curNum int32, interval int32, remainTi
 	taskd := taskDatas[t.taskId]
 
 	// 캐쉬에서 user 데이터 get
-	chTime, crNum, err := t.cacheIo.GetCacheTask(t.uid, t.taskId)
+	dat, err := t.cacheIo.GetCacheTask(t.uid, t.taskId)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 
 	// 현재 시간을 기준으로 업데이트 실시
-	newNum, newRemainTime, NewCheckTime, err := t.update(chTime, crNum)
+	newNum, newRemainTime, NewCheckTime, err := t.update(dat)
 	addedNum := newNum + num
 
 	// 계산된 수량이 음수이면 0으로 초기화, 그리고 체크타임등을 초기화.
@@ -128,12 +131,15 @@ func (t *TaskManager)CalcTask(num int32) (curNum int32, interval int32, remainTi
 	}
 
 	// 디비에 씀
-	err = t.io.Write(t.uid, t.taskId, NewCheckTime, addedNum)
+	dat = make(map[string]int64)
+	dat["ct"] = NewCheckTime
+	dat["num"] = int64(addedNum)
+	err = t.io.Write(t.uid, t.taskId, dat)
 	if err != nil {
 		return 0, 0, 0, err
 	}
 	// 캐쉬에 씀
-	err = t.cacheIo.PutCacheTask(t.uid, t.taskId, NewCheckTime, addedNum)
+	err = t.cacheIo.PutCacheTask(t.uid, t.taskId, dat)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -166,7 +172,7 @@ func (t *TaskManager)DeleteTask() (err error) {
 // calcNum : 체크시간을 기준으로 현재 수량과 남은 시간, 필요하다면(현재수량이 증가 했을때) 체크시간 업데이트
 // 인풋 : user id, task index
 // 리턴 : err
-func (t *TaskManager)update(chTime int64, crNum int32) (newNum int32, newRemainTime int32, newCheckTime int64, err error) {
+func (t *TaskManager)update(dat map[string]int64) (newNum int32, newRemainTime int32, newCheckTime int64, err error) {
 	if err := t.validate(); err != nil {
 		return 0,0,0,err
 	}
@@ -176,14 +182,14 @@ func (t *TaskManager)update(chTime int64, crNum int32) (newNum int32, newRemainT
 
 	// 총수량이 최대수량보다 많으면 더 볼것도 없이,
 	// 총수량은 최대수량으로 고정시키고 남은 시간과 체크시간을 현재 시간 기준으로 바꿈.
-	curNum := crNum
+	curNum := int32(dat["num"])
 	if curNum >= taskd.maxNum {
 		log.Printf("	- update curNum:%d interval: %d checktime : %d", curNum, taskd.interval, curTime)
 		return curNum, taskd.interval, curTime, nil
 	}
 
 	// 체크시간과 현재시간의 차이에서 인터벌로 나눈 수만큼 갯수를 증가시킴.
-	oldCheckTime := chTime
+	oldCheckTime := dat["ct"]
 	curInterval := curTime - oldCheckTime
 	curInterval = Max64(0, curInterval)
 	if taskd.interval == 0 {

@@ -261,7 +261,7 @@ func TestCalc(t *testing.T) {
 
 		time.Sleep(2 * time.Second)
 		log.Printf(" 2초후")
-		log.Printf(" -- TestCalc : 세게 더함(3)")
+		log.Printf(" -- TestCalc : 3개 더함(3)")
 		nTM = client.newTM()
 		curNum, interval, remainedTime, err = nTM.CalcTask(3)
 		if err != nil {
