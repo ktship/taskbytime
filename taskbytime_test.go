@@ -5,9 +5,13 @@ import (
 	"log"
 	"github.com/ktship/testio"
 	"fmt"
+	"strconv"
+	"runtime"
 )
 
 func init() {
+	fmt.Printf("Running On %s, %s, %s, %d-bit \n", runtime.Compiler, runtime.GOARCH, runtime.GOOS, strconv.IntSize)
+
 	SetData(0, taskData{
 		startNum:0,
 		maxNum:5,
