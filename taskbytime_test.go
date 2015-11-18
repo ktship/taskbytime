@@ -3,7 +3,6 @@ import (
 	"testing"
 	"time"
 	"log"
-	"github.com/ktship/testio"
 	"fmt"
 	"strconv"
 	"runtime"
@@ -34,14 +33,14 @@ func init() {
 
 type clientTask struct {
 	taskData
-	uid				uint32
-	taskId			uint32
-	curNum			int32
-	remainedTime	int32
+	uid				int
+	taskId			int
+	curNum			int
+	remainedTime	int
 	Ticker 			*time.Ticker
 }
 
-func newClient(t taskData, uid uint32, tid uint32, cNum int32, rTime int32) *clientTask {
+func newClient(t taskData, uid int, tid int, cNum int, rTime int) *clientTask {
 	return &clientTask{
 		taskData: 		t,
 		uid:			uid,
@@ -53,13 +52,11 @@ func newClient(t taskData, uid uint32, tid uint32, cNum int32, rTime int32) *cli
 }
 
 func (c *clientTask)newTM() *TaskManager {
-	tio := testio.NewTestFileIO()
-	cio := testio.NewTestCacheIO()
-	taskm := NewTaskManager(tio, cio, c.uid, c.taskId)
+	taskm := NewTaskManager()
 	return taskm
 }
 
-func (c *clientTask)getClientInfo() (taskId uint32, curNum int32, remainedTime int32) {
+func (c *clientTask)getClientInfo() (taskId int, curNum int, remainedTime int) {
 	return c.taskId, c.curNum, c.remainedTime
 }
 
@@ -79,25 +76,20 @@ func (c *clientTask)tick1sec() {
 	}
 }
 
-func TestNew(t *testing.T) {
+func Test01_New(t *testing.T) {
 	// users
-	var uid1, uid2, uid3 uint32
+	var uid1 int
 	uid1 = 111
-	uid2 = 222
-	uid3 = 333
 
 	// a task
-	var taskId_a uint32
-	taskId_a = 0
+	var taskId int
+	taskId = 0
 
-	tio := testio.NewTestFileIO()
-	cio := testio.NewTestCacheIO()
+	tData := taskDatas[taskId]
 
-	tData := taskDatas[taskId_a]
-
-	client := newClient(tData, uid1, taskId_a, tData.startNum, tData.interval)
+	client := newClient(tData, uid1, taskId, tData.startNum, tData.interval)
 	nTM1 := client.newTM()
-	curNum, interval, remainedTime, err := nTM1.CreateTask()
+	curNum, interval, remainedTime, err := nTM1.CreateTask(uid1, taskId)
 	if err != nil {
 		t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 	}
@@ -107,13 +99,6 @@ func TestNew(t *testing.T) {
 	if remainedTime == 0 {
 		t.Errorf("Fail remainedTime is 0")
 	}
-
-	client2 := newClient(tData, uid2, taskId_a, tData.startNum, tData.interval)
-	nTM2 := client2.newTM()
-	curNum, interval, remainedTime, err = nTM2.CreateTask()
-	client3 := newClient(tData, uid3, taskId_a, tData.startNum, tData.interval)
-	nTM3 := client3.newTM()
-	curNum, interval, remainedTime, err = nTM3.CreateTask()
 
 	client.Ticker = time.NewTicker(1 * time.Second)
 	stop := make(chan bool, 1)
@@ -128,7 +113,7 @@ func TestNew(t *testing.T) {
 				if retNum == 0 && retRemainTime == 1 {
 					nTM := client.newTM()
 					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", retTaskId, retNum, retRemainTime)
-					curNum, interval, remainedTime, err := nTM.CalcTask(0)
+					curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, 0)
 					if curNum != 0 || interval != 5 || err != nil {
 						t.Errorf("Fail CalcTask(0) %d, %d, %d", curNum, interval, remainedTime)
 					}
@@ -137,7 +122,7 @@ func TestNew(t *testing.T) {
 				if retNum == 1 && retRemainTime == 5 {
 					nTM := client.newTM()
 					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", retTaskId, retNum, retRemainTime)
-					curNum, interval, remainedTime, err := nTM.CalcTask(0)
+					curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, 0)
 					if curNum != 1 || interval != 5 || err != nil {
 						t.Errorf("Fail CalcTask(0) %d, %d, %d", curNum, interval, remainedTime)
 					}
@@ -146,7 +131,7 @@ func TestNew(t *testing.T) {
 				if retNum == 3 && retRemainTime == 5 {
 					nTM := client.newTM()
 					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", retTaskId, retNum, retRemainTime)
-					curNum, interval, remainedTime, err := nTM.CalcTask(0)
+					curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, 0)
 					if curNum != 3 || interval != 5 || err != nil {
 						t.Errorf("Fail CalcTask(0) %d, %d, %d", curNum, interval, remainedTime)
 					}
@@ -161,8 +146,8 @@ func TestNew(t *testing.T) {
 	time.Sleep(9 * time.Second)
 	log.Printf(" ---- 9 sec later ")
 	if true {
-		taskm2 := NewTaskManager(tio, cio, uid2, taskId_a)
-		curNum, _, remainedTime, err := taskm2.CalcTask(0)
+		taskm2 := NewTaskManager()
+		curNum, _, remainedTime, err := taskm2.CalcTask(uid1, taskId, 0)
 		if err != nil {
 			t.Error("taskm2.CalcTask")
 		}
@@ -177,8 +162,8 @@ func TestNew(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	log.Printf(" ---- 20 sec later ")
 	if true {
-		taskm3 := NewTaskManager(tio, cio, uid3, taskId_a)
-		curNum, _, remainedTime, err := taskm3.CalcTask(0)
+		taskm3 := NewTaskManager()
+		curNum, _, remainedTime, err := taskm3.CalcTask(uid1, taskId, 0)
 		if err != nil {
 			t.Error("taskm3.CalcTask")
 		}
@@ -191,20 +176,20 @@ func TestNew(t *testing.T) {
 	stop <- true
 }
 
-func TestCalc(t *testing.T) {
+func Test02_Calc(t *testing.T) {
 	// users
-	var uid1 uint32
+	var uid1 int
 	uid1 = 111
 
 	// a task : 4, 4, 3
-	var taskId uint32
+	var taskId int
 	taskId = 1
 
 	tData := taskDatas[taskId]
 
 	client := newClient(tData, uid1, taskId, tData.startNum, tData.interval)
 	nTM := client.newTM()
-	curNum, interval, remainedTime, err := nTM.CreateTask()
+	curNum, interval, remainedTime, err := nTM.CreateTask(uid1, taskId)
 	if err != nil {
 		t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 	}
@@ -214,7 +199,7 @@ func TestCalc(t *testing.T) {
 	if true {
 		log.Printf(" - 하나 사용(-1)하고 task 시작")
 		nTM := client.newTM()
-		curNum, interval, remainedTime, err := nTM.CalcTask(-1)
+		curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, -1)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -227,7 +212,7 @@ func TestCalc(t *testing.T) {
 		log.Printf(" 1초후")
 		log.Printf(" -- TestCalc : 하나 사용(-1)")
 		nTM2 := client.newTM()
-		curNum, interval, remainedTime, err = nTM2.CalcTask(-1)
+		curNum, interval, remainedTime, err = nTM2.CalcTask(uid1, taskId, -1)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -239,7 +224,7 @@ func TestCalc(t *testing.T) {
 		log.Printf(" 3초후")
 		log.Printf(" -- TestCalc : 하나 사용(-1)")
 		nTM3 := client.newTM()
-		curNum, interval, remainedTime, err = nTM3.CalcTask(-1)
+		curNum, interval, remainedTime, err = nTM3.CalcTask(uid1, taskId, -1)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -251,7 +236,7 @@ func TestCalc(t *testing.T) {
 		log.Printf(" 6초후")
 		log.Printf(" -- TestCalc : 하나 사용(-1)")
 		nTM = client.newTM()
-		curNum, interval, remainedTime, err = nTM.CalcTask(-1)
+		curNum, interval, remainedTime, err = nTM.CalcTask(uid1, taskId, -1)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -263,7 +248,7 @@ func TestCalc(t *testing.T) {
 		log.Printf(" 2초후")
 		log.Printf(" -- TestCalc : 3개 더함(3)")
 		nTM = client.newTM()
-		curNum, interval, remainedTime, err = nTM.CalcTask(3)
+		curNum, interval, remainedTime, err = nTM.CalcTask(uid1, taskId, 3)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -275,7 +260,7 @@ func TestCalc(t *testing.T) {
 		log.Printf(" 23초후")
 		log.Printf(" -- TestCalc : 하나 사용(-1)")
 		nTM = client.newTM()
-		curNum, interval, remainedTime, err = nTM3.CalcTask(-1)
+		curNum, interval, remainedTime, err = nTM3.CalcTask(uid1, taskId, -1)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
 		}
@@ -284,27 +269,27 @@ func TestCalc(t *testing.T) {
 		}
 
 		nTM = client.newTM()
-		err = nTM3.DeleteTask()
+		err = nTM3.DeleteTask(uid1, taskId)
 		if err != nil {
 			t.Errorf("Fail DeleteTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
 		}
 	}
 }
 
-func TestFinish(t *testing.T) {
+func Test03_Finish(t *testing.T) {
 	// users
-	var uid3 uint32
+	var uid3 int
 	uid3 = 333
 
 	// a task : 1, 1, 5
-	var taskId uint32
+	var taskId int
 	taskId = 2
 
 	tData := taskDatas[taskId]
 
 	client := newClient(tData, uid3, taskId, tData.startNum, tData.interval)
 	nTM := client.newTM()
-	curNum, interval, remainedTime, err := nTM.CreateTask()
+	curNum, interval, remainedTime, err := nTM.CreateTask(uid3, taskId)
 	if err != nil {
 		t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 	}
@@ -315,7 +300,7 @@ func TestFinish(t *testing.T) {
 	if true {
 		log.Printf(" - 확인")
 		nTM := client.newTM()
-		curNum, interval, remainedTime, err := nTM.CalcTask(0)
+		curNum, interval, remainedTime, err := nTM.CalcTask(uid3, taskId, 0)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -328,7 +313,7 @@ func TestFinish(t *testing.T) {
 		log.Printf(" 2초후")
 		log.Printf(" - 확인")
 		nTM2 := client.newTM()
-		curNum, interval, remainedTime, err = nTM2.CalcTask(0)
+		curNum, interval, remainedTime, err = nTM2.CalcTask(uid3, taskId, 0)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -341,7 +326,7 @@ func TestFinish(t *testing.T) {
 		log.Printf(" 2초후")
 		log.Printf(" - 확인")
 		nTM3 := client.newTM()
-		curNum, interval, remainedTime, err = nTM3.CalcTask(0)
+		curNum, interval, remainedTime, err = nTM3.CalcTask(uid3, taskId, 0)
 		if err != nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		}
@@ -351,7 +336,7 @@ func TestFinish(t *testing.T) {
 		}
 
 		nTM = client.newTM()
-		err = nTM3.DeleteTask()
+		err = nTM3.DeleteTask(uid3, taskId)
 		if err != nil {
 			t.Errorf("Fail DeleteTask %d, %d, %d, %s", curNum, interval, remainedTime, err)
 		}
@@ -360,7 +345,7 @@ func TestFinish(t *testing.T) {
 		log.Printf(" 2초후")
 		log.Printf(" - 확인")
 		nTM = client.newTM()
-		curNum, interval, remainedTime, err = nTM.CalcTask(0)
+		curNum, interval, remainedTime, err = nTM.CalcTask(uid3, taskId, 0)
 		if err == nil {
 			t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 		} else {
