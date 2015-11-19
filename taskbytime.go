@@ -16,7 +16,7 @@ type TaskManager struct {
 // TaskManager 생성
 // 입력 : TaskIO, TaskCacheIO
 // 리턴 : TaskManager 인스턴스
-func NewTaskManager(tio taskIO) *TaskManager {
+func New(tio taskIO) *TaskManager {
 	return &TaskManager{
 		io:			tio,
 	}
