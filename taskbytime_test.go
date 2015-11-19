@@ -35,43 +35,51 @@ func init() {
 	})
 }
 
-type clientTask struct {
+type client struct {
 	taskData
 	uid				int
-	taskId			int
+	tasks			map[int]*clientTask
+}
+
+type clientTask struct {
 	curNum			int
 	remainedTime	int
-	Ticker 			*time.Ticker
 }
 
-func newClient(t taskData, uid int, tid int, cNum int, rTime int) *clientTask {
-	return &clientTask{
+func newClient(t taskData, uid int) *client {
+	return &client{
 		taskData: 		t,
 		uid:			uid,
-		taskId: 		tid,
-		curNum: 		cNum,
-		remainedTime: 	rTime,
-		Ticker:			time.NewTicker(1 * time.Second),
+		tasks: 			make(map[int]*clientTask),
 	}
 }
 
-func (c *clientTask)getClientInfo() (taskId int, curNum int, remainedTime int) {
-	return c.taskId, c.curNum, c.remainedTime
+func (c *client)setTaskInfo(tid int, cNum int, rTime int) {
+	c.tasks[tid] = &clientTask{
+		curNum		:cNum,
+		remainedTime:rTime,
+	}
 }
 
-func (c *clientTask)tick1sec() {
-	taskd := taskDatas[c.taskId]
+func (c *client)getTaskInfo(tid int) (curNum int, remainedTime int) {
+	info := c.tasks[tid]
+	return info.curNum, info.remainedTime
+}
 
-	// 꽉 차 있으면 패쓰
-	if (c.curNum >= taskd.maxNum) {
-		return
-	}
+func (c *client)tick1sec() {
+	for k, v := range c.tasks {
+		taskd := taskDatas[k]
+		// 꽉 차 있으면 패쓰
+		if (v.curNum >= taskd.maxNum) {
+			continue
+		}
 
-	// 시간이 다 되었으면 수량 1 증가
-	c.remainedTime = c.remainedTime - 1
-	if c.remainedTime <= 0 {
-		c.curNum = Min(taskd.maxNum, c.curNum + 1)
-		c.remainedTime = taskd.interval
+		// 시간이 다 되었으면 수량 1 증가
+		v.remainedTime = v.remainedTime - 1
+		if v.remainedTime <= 0 {
+			v.curNum = Min(taskd.maxNum, v.curNum + 1)
+			v.remainedTime = taskd.interval
+		}
 	}
 }
 
@@ -89,9 +97,10 @@ func Test01_New(t *testing.T) {
 
 	tData := taskDatas[taskId]
 
-	client := newClient(tData, uid1, taskId, tData.startNum, tData.interval)
+	client := newClient(tData, uid1)
 	nTM1 := New(testio)
 	curNum, interval, remainedTime, err := nTM1.CreateTask(uid1, taskId)
+	client.setTaskInfo(taskId, curNum, remainedTime)
 	if err != nil {
 		t.Errorf("Fail CreateTask %d, %d, %d", curNum, interval, remainedTime)
 	}
@@ -102,19 +111,19 @@ func Test01_New(t *testing.T) {
 		t.Errorf("Fail remainedTime is 0")
 	}
 
-	client.Ticker = time.NewTicker(1 * time.Second)
+	ticker := time.NewTicker(1 * time.Second)
 	stop := make(chan bool, 1)
 
 	go func(){
 		for {
 			select {
-			case <- client.Ticker.C:
+			case <- ticker.C:
 				client.tick1sec()
-				retTaskId, retNum, retRemainTime := client.getClientInfo()
+				retNum, retRemainTime := client.getTaskInfo(taskId)
 				log.Printf("client time Num:(%d) rTime: (%d)", retNum, retRemainTime)
 				if retNum == 0 && retRemainTime == 1 {
 					nTM := New(testio)
-					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", retTaskId, retNum, retRemainTime)
+					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", taskId, retNum, retRemainTime)
 					curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, 0)
 					if curNum != 0 || interval != 5 || err != nil {
 						t.Errorf("Fail CalcTask(0) %d, %d, %d", curNum, interval, remainedTime)
@@ -123,22 +132,23 @@ func Test01_New(t *testing.T) {
 
 				if retNum == 1 && retRemainTime == 5 {
 					nTM := New(testio)
-					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", retTaskId, retNum, retRemainTime)
+					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", taskId, retNum, retRemainTime)
 					curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, 0)
 					if curNum != 1 || interval != 5 || err != nil {
 						t.Errorf("Fail CalcTask(0) %d, %d, %d", curNum, interval, remainedTime)
 					}
 				}
 
+			case <- stop:
+				retNum, retRemainTime := client.getTaskInfo(taskId)
 				if retNum == 3 && retRemainTime == 5 {
 					nTM := New(testio)
-					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", retTaskId, retNum, retRemainTime)
+					log.Printf("server check nTM.CalcTask Task:%d Num:%d rTime: %d", taskId, retNum, retRemainTime)
 					curNum, interval, remainedTime, err := nTM.CalcTask(uid1, taskId, 0)
 					if curNum != 3 || interval != 5 || err != nil {
 						t.Errorf("Fail CalcTask(0) %d, %d, %d", curNum, interval, remainedTime)
 					}
 				}
-			case <- stop:
 				return
 			}
 		}
