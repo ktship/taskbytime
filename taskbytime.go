@@ -10,15 +10,15 @@ import (
 
 // 모든 태스크는 TaskManager 에게 일을 맡김. 인터페이스 역할을 함.
 type TaskManager struct {
-	io *taskio
+	io 		taskIO
 }
 
 // TaskManager 생성
 // 입력 : TaskIO, TaskCacheIO
 // 리턴 : TaskManager 인스턴스
-func NewTaskManager() *TaskManager {
+func NewTaskManager(tio taskIO) *TaskManager {
 	return &TaskManager{
-		io:			NewTaskIO(),
+		io:			tio,
 	}
 }
 
@@ -58,7 +58,8 @@ func (t *TaskManager)CreateTask(uid int, tid int) (curNum int, interval int, rem
 	data := make(map[string]interface{})
 	data["ct"] = int(checkTime)
 	data["num"] = taskd.startNum
-	err = t.io.WriteTaskIO(uid, tid, data)
+
+	err = t.io.WriteUserTask(uid, tid, data)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -77,7 +78,7 @@ func (t *TaskManager)CalcTask(uid int, tid int, num int) (curNum int, interval i
 	taskd := taskDatas[uid]
 
 	// 캐쉬에서 user 데이터 get
-	dat, err := t.io.ReadTaskIO(uid, tid)
+	dat, err := t.io.ReadUserTask(uid, tid)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -106,7 +107,7 @@ func (t *TaskManager)CalcTask(uid int, tid int, num int) (curNum int, interval i
 	dat = make(map[string]interface{})
 	dat["ct"] = NewCheckTime
 	dat["num"] = addedNum
-	err = t.io.WriteTaskIO(uid, tid, dat)
+	err = t.io.WriteUserTask(uid, tid, dat)
 	if err != nil {
 		return 0, 0, 0, err
 	}
@@ -123,7 +124,7 @@ func (t *TaskManager)DeleteTask(uid int, tid int) (err error) {
 	}
 
 	// 디비에서 제거
-	err = t.io.DelTaskIO(uid, tid)
+	err = t.io.DelUserTask(uid, tid)
 	if err != nil {
 		return err
 	}

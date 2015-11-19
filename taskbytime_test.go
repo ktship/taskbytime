@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"runtime"
+	"github.com/ktship/dataio"
 )
 
 func init() {
@@ -52,7 +53,8 @@ func newClient(t taskData, uid int, tid int, cNum int, rTime int) *clientTask {
 }
 
 func (c *clientTask)newTM() *TaskManager {
-	taskm := NewTaskManager()
+	dataio := dataio.New()
+	taskm := NewTaskManager(dataio)
 	return taskm
 }
 
@@ -77,6 +79,7 @@ func (c *clientTask)tick1sec() {
 }
 
 func Test01_New(t *testing.T) {
+	log.Printf(" ---- Test01_New ")
 	// users
 	var uid1 int
 	uid1 = 111
@@ -146,7 +149,7 @@ func Test01_New(t *testing.T) {
 	time.Sleep(9 * time.Second)
 	log.Printf(" ---- 9 sec later ")
 	if true {
-		taskm2 := NewTaskManager()
+		taskm2 := client.newTM()
 		curNum, _, remainedTime, err := taskm2.CalcTask(uid1, taskId, 0)
 		if err != nil {
 			t.Error("taskm2.CalcTask")
@@ -162,7 +165,7 @@ func Test01_New(t *testing.T) {
 	time.Sleep(10 * time.Second)
 	log.Printf(" ---- 20 sec later ")
 	if true {
-		taskm3 := NewTaskManager()
+		taskm3 := client.newTM()
 		curNum, _, remainedTime, err := taskm3.CalcTask(uid1, taskId, 0)
 		if err != nil {
 			t.Error("taskm3.CalcTask")
