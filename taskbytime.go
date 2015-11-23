@@ -3,6 +3,7 @@ import (
 	"fmt"
 	"time"
 	"log"
+	"strconv"
 )
 
 // 타임기반의 일처리 엔진
@@ -145,14 +146,20 @@ func (t *TaskManager)update(uid int, tid int, dat map[string]interface{}) (newNu
 
 	// 총수량이 최대수량보다 많으면 더 볼것도 없이,
 	// 총수량은 최대수량으로 고정시키고 남은 시간과 체크시간을 현재 시간 기준으로 바꿈.
-	curNum := dat["num"].(int)
+	curNum, err := strconv.Atoi(dat["num"].(string))
+	if err != nil {
+		return 0,0,0,err
+	}
 	if curNum >= taskd.maxNum {
 		log.Printf("	- update curNum:%d interval: %d checktime : %d", curNum, taskd.interval, curTime)
 		return curNum, taskd.interval, curTime, nil
 	}
 
 	// 체크시간과 현재시간의 차이에서 인터벌로 나눈 수만큼 갯수를 증가시킴.
-	oldCheckTime := dat["ct"].(int)
+	oldCheckTime, err := strconv.Atoi(dat["ct"].(string))
+	if err != nil {
+		return 0,0,0,err
+	}
 	curInterval := curTime - oldCheckTime
 	curInterval = Max(0, curInterval)
 	if taskd.interval == 0 {
