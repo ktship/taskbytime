@@ -23,12 +23,6 @@ func New(tio taskIO) *TaskManager {
 	}
 }
 
-// DB에 저장될 내용. 변하는 데이터
-type TaskVariable struct {
-	checkTime	int
-	curNum		int
-}
-
 // --------------------------------------------------------------------
 
 // validate : taskId 가 파라메터에 있는지 체크
